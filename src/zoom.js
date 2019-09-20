@@ -6,7 +6,7 @@ import {interrupt} from "d3-transition";
 import constant from "./constant";
 import ZoomEvent from "./event";
 import {Transform, identity} from "./transform";
-import noevent, {nopropagation} from "./noevent";
+import noevent, {nopropagation, allowevent} from "./noevent";
 
 // Ignore right-click, since that should open the context menu.
 function defaultFilter() {
@@ -66,7 +66,8 @@ export default function() {
     touchending,
     touchDelay = 500,
     wheelDelay = 150,
-    clickDistance2 = 0;
+    clickDistance2 = 0,
+    propagateEvents = false;
 
   function zoom(selection) {
     selection
@@ -280,7 +281,11 @@ export default function() {
       g.start();
     }
 
-    noevent();
+    if ( propagateEvents ) {
+      allowevent();
+    } else {
+      noevent();
+    }
     g.wheel = setTimeout(wheelidled, wheelDelay);
     g.zoom("mouse", constrain(translate(scale(t, kx, ky), g.mouse[0], g.mouse[1]), g.extent));
 
@@ -305,7 +310,11 @@ export default function() {
     g.start();
 
     function mousemoved() {
-      noevent();
+      if ( propagateEvents ) {
+        allowevent();
+      } else {
+        noevent();
+      }
       if (!g.moved) {
         var dx = event.clientX - x0, dy = event.clientY - y0;
         g.moved = g.moved || dx * dx + dy * dy > clickDistance2;
@@ -316,7 +325,11 @@ export default function() {
     function mouseupped() {
       v.on("mousemove.zoom mouseup.zoom", null);
       dragEnable(event.view, g.moved);
-      noevent();
+      if ( propagateEvents ) {
+        allowevent();
+      } else {
+        noevent();
+      }
       g.end();
     }
   }
@@ -330,7 +343,13 @@ export default function() {
       ky1 = t0.ky * (1 + ry * (-1 + (event.shiftKey ? 0.5 : 2))),
       t1 = constrain(translate(scale(t0, kx1, ky1), p0, p1), extent.apply(this, arguments));
 
-    noevent();
+
+    if ( propagateEvents ) {
+      allowevent();
+    } else {
+      noevent();
+    }
+
     if (duration > 0) select(this).transition().duration(duration).call(schedule, t1, p0);
     else select(this).call(zoom.transform, t1);
   }
@@ -372,7 +391,11 @@ export default function() {
       touches = event.changedTouches,
       n = touches.length, i, t, p, l;
 
-    noevent();
+    if ( propagateEvents ) { 
+      allowevent();
+    } else {
+      noevent();
+    }
     if (touchstarting) touchstarting = clearTimeout(touchstarting);
     for (i = 0; i < n; ++i) {
       t = touches[i], p = touch(this, touches, t.identifier);
@@ -471,6 +494,13 @@ export default function() {
   zoom.on = function() {
     var value = listeners.on.apply(listeners, arguments);
     return value === listeners ? zoom : value;
+  };
+
+  zoom.propagate = function( newPropagate ) {
+    if ( typeof newPropagate === "boolean" ) {
+      propagateEvents = newPropagate;
+    }
+    return zoom;
   };
 
   return zoom;
