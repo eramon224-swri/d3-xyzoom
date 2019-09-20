@@ -73,6 +73,10 @@
     d3Selection.event.stopImmediatePropagation();
   }
 
+  function allowevent() {
+    d3Selection.event.preventDefault();
+  }
+
   function noevent() {
     d3Selection.event.preventDefault();
     d3Selection.event.stopImmediatePropagation();
@@ -136,7 +140,8 @@
       touchending,
       touchDelay = 500,
       wheelDelay = 150,
-      clickDistance2 = 0;
+      clickDistance2 = 0,
+      propagateEvents = false;
 
     function zoom(selection) {
       selection
@@ -350,7 +355,11 @@
         g.start();
       }
 
-      noevent();
+      if ( propagateEvents ) {
+        allowevent();
+      } else {
+        noevent();
+      }
       g.wheel = setTimeout(wheelidled, wheelDelay);
       g.zoom("mouse", constrain(translate(scale(t, kx, ky), g.mouse[0], g.mouse[1]), g.extent));
 
@@ -375,7 +384,11 @@
       g.start();
 
       function mousemoved() {
-        noevent();
+        if ( propagateEvents ) {
+          allowevent();
+        } else {
+          noevent();
+        }
         if (!g.moved) {
           var dx = d3Selection.event.clientX - x0, dy = d3Selection.event.clientY - y0;
           g.moved = g.moved || dx * dx + dy * dy > clickDistance2;
@@ -386,7 +399,11 @@
       function mouseupped() {
         v.on("mousemove.zoom mouseup.zoom", null);
         d3Drag.dragEnable(d3Selection.event.view, g.moved);
-        noevent();
+        if ( propagateEvents ) {
+          allowevent();
+        } else {
+          noevent();
+        }
         g.end();
       }
     }
@@ -400,7 +417,13 @@
         ky1 = t0.ky * (1 + ry * (-1 + (d3Selection.event.shiftKey ? 0.5 : 2))),
         t1 = constrain(translate(scale(t0, kx1, ky1), p0, p1), extent.apply(this, arguments));
 
-      noevent();
+
+      if ( propagateEvents ) {
+        allowevent();
+      } else {
+        noevent();
+      }
+
       if (duration > 0) d3Selection.select(this).transition().duration(duration).call(schedule, t1, p0);
       else d3Selection.select(this).call(zoom.transform, t1);
     }
@@ -442,7 +465,11 @@
         touches = d3Selection.event.changedTouches,
         n = touches.length, i, t, p, l;
 
-      noevent();
+      if ( propagateEvents ) { 
+        allowevent();
+      } else {
+        noevent();
+      }
       if (touchstarting) touchstarting = clearTimeout(touchstarting);
       for (i = 0; i < n; ++i) {
         t = touches[i], p = d3Selection.touch(this, touches, t.identifier);
@@ -541,6 +568,13 @@
     zoom.on = function() {
       var value = listeners.on.apply(listeners, arguments);
       return value === listeners ? zoom : value;
+    };
+
+    zoom.propagate = function( newPropagate ) {
+      if ( typeof newPropagate === "boolean" ) {
+        propagateEvents = newPropagate;
+      }
+      return zoom;
     };
 
     return zoom;
